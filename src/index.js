@@ -33,7 +33,7 @@ export default {
       // 再看选项
       const authType = env.authType;
       const authTypeOptions = [ 'plain', 'login', 'cram-md5' ];
-      if (!authType in authTypeOptions) {
+      if (!(authType in authTypeOptions)) {
         return createErrorResponse('Invalid STMP config', 500);
       }
 
