@@ -1,0 +1,15 @@
+{
+  "name": "edge-mailer",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "echo 'No build step required'",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "worker-mailer": "^1.0.0"
+  }
+}
