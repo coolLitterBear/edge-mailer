@@ -2,7 +2,7 @@ import { WorkerMailer } from 'worker-mailer';
 import { validateContentType, validateBody, validateBoolean, createErrorResponse } from './validator';
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     // 1. 只允许 POST
     if (request.method !== 'POST') {
       return createErrorResponse('Method not allowed. Only POST is supported.', 405);
@@ -20,7 +20,7 @@ export default {
       const validation = validateBody(body);
       if (!validation.valid) {
         return createErrorResponse(validation.error, validation.status);
-      }
+      };
 
       // 4. 验证通过，提取变量
       const { from, to, subject, html } = validation.data;
@@ -33,13 +33,15 @@ export default {
       // 再看选项
       const authType = env.authType;
       const authTypeOptions = [ 'plain', 'login', 'cram-md5' ];
-      if (!(authType in authTypeOptions)) {
+      if (!authTypeOptions.includes(authType)) {
         return createErrorResponse('Invalid STMP config', 500);
-      }
+      };
 
       // 最后赋值
+      let SMTP_CONFIG;
+      let mailOpinions;
       try {
-        const SMTP_CONFIG = {
+        SMTP_CONFIG = {
           host: env.host,
           port: parseInt(env.port, 10),
           secure: secure,
@@ -50,7 +52,7 @@ export default {
           },
           authType: authType,
         };
-        const mailOpinions = {
+        mailOpinions = {
           from: from,
           to: to,
           subject: subject,
