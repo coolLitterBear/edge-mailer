@@ -25,22 +25,21 @@ export default {
       // 4. 验证通过，提取变量
       const { from, to, subject, html } = validation.data;
 
-      // SMTP 配置
-      // 先看布尔值
-      const secure = validateBoolean(env.secure);
-      const startTls = validateBoolean(env.startTls);
-
-      // 再看选项
-      const authType = env.authType;
+      // 5. SMTP 配置，mailOpinions 顺手的事
+      // 先声明
       const authTypeOptions = [ 'plain', 'login', 'cram-md5' ];
-      if (!authTypeOptions.includes(authType)) {
-        return createErrorResponse('Invalid STMP config', 500);
-      };
-
-      // 最后赋值
+      let secure;
+      let startTls;
+      let authType;
       let SMTP_CONFIG;
       let mailOpinions;
       try {
+        secure = validateBoolean(env.secure);
+        startTls = validateBoolean(env.startTls);
+        authType = env.authType;
+        if (!authTypeOptions.includes(authType)) {
+          return createErrorResponse('Invalid STMP config', 500);
+        };
         SMTP_CONFIG = {
           host: env.host,
           port: parseInt(env.port, 10),
@@ -59,13 +58,14 @@ export default {
           html: html,
         };
       } catch(err) {
+        console.error(err)
         return createErrorResponse('Invalid STMP config', 500);
       }
 
-      // 调用 worker-mail
+      // 6. 调用 worker-mail
       await WorkerMailer.send(SMTP_CONFIG, mailOpinions);
 
-      // 返回成功
+      // 7. 返回成功
       return new Response(
         JSON.stringify({ success: true, message: 'Request processed successfully' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -73,7 +73,31 @@ export default {
 
     } catch (err) {
       // JSON 解析失败
+      console.error(err)
       return createErrorResponse('Invalid JSON body', 400);
     }
   }
 };
+
+/**
+*                             _ooOoo_
+*                            o8888888o
+*                            88" . "88
+*                            (| -_- |)
+*                            O\  =  /O
+*                         ____/`---'\____
+*                       .'  \\|     |//  `.
+*                      /  \\|||  :  |||//  \
+*                     /  _||||| -:- |||||-  \
+*                     |   | \\\  -  /// |   |
+*                     | \_|  ''\---/''  |   |
+*                     \  .-\__  `-`  ___/-. /
+*                   ___`. .'  /--.--\  `. . __
+*                ."" '<  `.___\_<|>_/___.'  >'"".
+*               | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+*               \  \ `-.   \_ __\ /__ _/   .-` /  /
+*          ======`-.____`-.___\_____/___.-`____.-'======
+*                             `=---='
+*          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+*                     佛祖保佑        永无BUG
+**/
