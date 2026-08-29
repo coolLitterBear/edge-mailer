@@ -12,25 +12,39 @@ export function validateContentType(request) {
 }
 
 // 验证请求体 JSON 及其字段
-export function validateBody(body) {
-  const { from, to, subject, html } = body;
+export function validateBody(body, env) {
+  const { to, subject, html } = body;
 
   // 检查字段是否存在
-  if (from === undefined || to === undefined || subject === undefined || html === undefined) {
+  if (to === undefined || subject === undefined || html === undefined || !('from' in body || 'from' in env)) {
     return {
       valid: false,
       status: 400,
       error: 'Missing required fields: from, to, subject, html'
     };
+  } else {
+    if ('from' in body) {
+      const { from } = body;
+    } else {
+      const { from } = env;
+    }
   }
-
-  // 检查类型
+  
   if (typeof from !== 'string') {
-    return {
-      valid: false,
-      status: 400,
-      error: 'Field "from" must be a string'
-    };
+    if ('from' in body) {
+      return {
+        valid: false,
+        status: 400,
+        error: 'Field "from" must be a string'
+      };
+    } else {
+      console.error('Field env.from must be a string')
+      return {
+        valid: false,
+        status: 500,
+        error: 'Invalid SMTP config'
+      }
+    }
   }
   if (!Array.isArray(to)) {
     return {
@@ -54,10 +68,16 @@ export function validateBody(body) {
     };
   }
 
-  // 全部通过，返回提取的字段
+  // 全部通过，返回
+  mailOpinions = {
+    from: from,
+    to: to,
+    subject: subject,
+    html: html,
+  };
   return {
     valid: true,
-    data: { from, to, subject, html }
+    data: mailOpinions
   };
 }
 
@@ -71,6 +91,77 @@ export function validateBoolean(str) {
   } else {
     // 无则报错
     throw new Error(`Invalid boolean string: "${str}". Expected "true" or "false".`);
+  }
+}
+
+export function validateEnv(env) {
+  let { host, port, secure, startTls, username, password, authType } = env;
+  if (host === undefined || username === undefined || password === undefined) {
+    return {
+      valid: false,
+      status: 500,
+      error: 'Invalid SMTP config'
+    };
+  }
+    secure = false;
+  if (secure !== undefined) {
+    secure = validateBoolean(secure);
+  }
+  if (startTls !== undefined) {
+    startTls = validateBoolean(startTls);
+  }
+  if (port === undefined) {
+    if (secure) {
+      port = 465;
+    } else if (startTls) {
+      port = 587;
+    } else {
+      console.error('Cloudflare Workers has disabled the use of port 25, which should be used when both secure and startTls are set to false.');
+      return {
+        valid: false,
+        status: 500,
+        error: 'Invalid SMTP config'
+      };
+    }
+  } else {
+    try {
+      port = parseInt(port, 10);
+    } catch (err) {
+      console.error('env.port cannot be converted to an integer');
+      return {
+        valid: false,
+        status: 500,
+        error: 'Invalid SMTP config'
+      }
+    }
+  }
+  if (authType !== undefined) {
+    // authType 在 worker-mailer 默认为 plain ，这里让 worker-mailer 补全太麻烦了
+    authType = 'plain';
+  } else {
+    const authTypeOptions = [ 'plain', 'login', 'cram-md5' ];
+    if (!authTypeOptions.includes(authType)) {
+      return {
+        valid: false,
+        status: 500,
+        error: 'Invalid SMTP config'
+      };
+    }
+  }
+  const SMTP_CONFIG = {
+    host: host,
+    port: port,
+    secure: secure,
+    startTls: startTls,
+    credentials: {
+      username: username,
+      password: password,
+    },
+    authType: authType,
+  };
+  return {
+    valid: true,
+    data: SMTP_CONFIG
   }
 }
 

@@ -1,5 +1,5 @@
 import { WorkerMailer } from 'worker-mailer';
-import { validateContentType, validateBody, validateBoolean, createErrorResponse } from './validator';
+import { validateContentType, validateBody, validateBoolean, validateEnv, createErrorResponse } from './validator';
 
 export default {
   async fetch(request, env) {
@@ -17,51 +17,23 @@ export default {
     // 3. 解析 JSON 并验证字段
     try {
       const body = await request.json();
-      const validation = validateBody(body);
-      if (!validation.valid) {
-        return createErrorResponse(validation.error, validation.status);
+      const validatedBody = validateBody(body, env);
+      if (!validatedBody.valid) {
+        return createErrorResponse(validatedBody.error, validatedBody.status);
       };
 
       // 4. 验证通过，提取变量
-      const { from, to, subject, html } = validation.data;
+      const mailOpinions = validatedBody.data;
 
-      // 5. SMTP 配置，mailOpinions 顺手的事
+      // 5. SMTP 配置
       // 先声明
-      const authTypeOptions = [ 'plain', 'login', 'cram-md5' ];
-      let secure;
-      let startTls;
-      let authType;
-      let SMTP_CONFIG;
-      let mailOpinions;
-      try {
-        secure = validateBoolean(env.secure);
-        startTls = validateBoolean(env.startTls);
-        authType = env.authType;
-        if (!authTypeOptions.includes(authType)) {
-          return createErrorResponse('Invalid STMP config', 500);
-        };
-        SMTP_CONFIG = {
-          host: env.host,
-          port: parseInt(env.port, 10),
-          secure: secure,
-          startTls: startTls,
-          credentials: {
-            username: env.username,
-            password: env.password,
-          },
-          authType: authType,
-        };
-        mailOpinions = {
-          from: from,
-          to: to,
-          subject: subject,
-          html: html,
-        };
-      } catch(err) {
-        console.error(err)
-        return createErrorResponse('Invalid STMP config', 500);
-      }
+      const validatedEnv = validateEnv(env);
+      if (!validatedEnv.valid) {
+        return createErrorResponse(validatedEnv.error, validatedEnv.status);
+      };
 
+      const SMTP_CONFIG = validatedEnv.data;
+      
       // 6. 调用 worker-mail
       await WorkerMailer.send(SMTP_CONFIG, mailOpinions);
 
